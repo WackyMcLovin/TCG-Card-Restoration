@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pokémon Card Restoration — Intake &amp; Assessment</title>
+<style>
+  :root{
+    --ink:#0f172a; --ink-soft:#334155; --muted:#64748b; --line:#e2e8f0;
+    --bg:#f1f5f9; --card:#ffffff;
+    --brand:#3b82f6; --brand-deep:#1d4ed8; --brand-ink:#1e3a8a;
+    --grad1:#4f46e5; --grad2:#2563eb;
+    --t1:#16a34a; --t1bg:#dcfce7; --t2:#ca8a04; --t2bg:#fef9c3;
+    --t3:#dc2626; --t3bg:#fee2e2;
+    --ok:#16a34a; --bad:#dc2626; --warn:#d97706;
+    --radius:16px; --shadow:0 4px 20px rgba(15,23,42,.08);
+    --shadow-lg:0 12px 40px rgba(15,23,42,.14);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:var(--bg); line-height:1.5;
+    -webkit-font-smoothing:antialiased; padding-bottom:100px;
+  }
+  .wrap{max-width:880px; margin:0 auto; padding:0 16px}
+
+  header.hero{background:linear-gradient(135deg,var(--grad1),var(--grad2));
+    color:#fff; padding:26px 0 22px; box-shadow:var(--shadow)}
+  .hero-row{display:flex; justify-content:space-between; align-items:flex-start; gap:14px}
+  .hero h1{margin:0; font-size:1.5rem; letter-spacing:.3px}
+  .hero p{margin:4px 0 0; color:#dbeafe; font-size:.9rem}
+  .badge-id{background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.35);
+    padding:5px 10px; border-radius:999px; font-size:.72rem; font-weight:700; white-space:nowrap; text-align:right}
+  .badge-id b{display:block; font-size:.78rem} .handle{color:#bfdbfe}
+
+  .progress{position:sticky; top:0; z-index:40; background:rgba(255,255,255,.92);
+    backdrop-filter:blur(8px); border-bottom:1px solid var(--line)}
+  .progress-inner{display:flex; gap:6px; padding:10px 16px; max-width:880px; margin:0 auto; overflow-x:auto}
+  .pstep{flex:1 0 auto; min-width:118px; display:flex; align-items:center; gap:8px;
+    font-size:.78rem; color:var(--muted); font-weight:600; white-space:nowrap}
+  .pstep .dot{width:22px; height:22px; border-radius:50%; background:var(--line); color:#fff;
+    display:grid; place-items:center; font-size:.72rem; flex:none; transition:.2s}
+  .pstep.active .dot{background:var(--brand)} .pstep.done .dot{background:var(--ok)}
+  .pstep.active,.pstep.done{color:var(--ink)}
+
+  section.block{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px; margin:18px 0; box-shadow:var(--shadow)}
+  .sec-head{display:flex; align-items:center; gap:10px; margin:0 0 4px}
+  .sec-head .num{width:30px; height:30px; border-radius:9px; background:var(--brand-ink); color:#fff;
+    display:grid; place-items:center; font-weight:700; flex:none}
+  .sec-head h2{margin:0; font-size:1.12rem}
+  .sec-sub{color:var(--muted); font-size:.88rem; margin:2px 0 16px}
+  .rule{height:3px; background:linear-gradient(90deg,var(--brand),transparent); border-radius:3px; margin:6px 0 16px}
+
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  @media(max-width:560px){ .grid{grid-template-columns:1fr} }
+  .field label{display:block; font-size:.8rem; font-weight:700; margin-bottom:6px; color:var(--ink-soft)}
+  .field .req{color:var(--bad)}
+  input[type=text],input[type=email],input[type=tel],input[type=date],select,textarea{
+    width:100%; padding:12px 13px; font-size:16px; border:1.5px solid var(--line);
+    border-radius:11px; background:#fff; color:var(--ink); transition:.15s; font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
+    box-shadow:0 0 0 3px rgba(59,130,246,.16)}
+  .hint{font-size:.74rem; color:var(--muted); margin-top:5px}
+
+  .pills{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:6px}
+  @media(max-width:560px){ .pills{grid-template-columns:1fr} }
+  .pill{position:relative; border:1.5px solid var(--line); border-radius:12px; padding:13px; cursor:pointer; transition:.15s; background:#fff}
+  .pill:hover{border-color:var(--brand)}
+  .pill input{position:absolute; opacity:0}
+  .pill .t{font-weight:700; font-size:.9rem} .pill .d{font-size:.74rem; color:var(--muted); margin-top:2px}
+  .pill.sel{border-color:var(--brand); background:#eff6ff; box-shadow:0 0 0 3px rgba(59,130,246,.14)}
+
+  /* Value lookup */
+  .lookup{border:1.5px dashed #93c5fd; background:#f5f9ff; border-radius:14px; padding:15px; margin-top:16px}
+  .lookup-head{display:flex; align-items:center; gap:8px; font-weight:800; font-size:.92rem; color:var(--brand-ink); margin-bottom:4px}
+  .lookup-row{display:flex; gap:10px; margin-top:10px}
+  @media(max-width:560px){ .lookup-row{flex-direction:column} }
+  .lookup-row .field{flex:1}
+  .btn-sm{background:var(--brand); color:#fff; border:none; border-radius:11px; padding:12px 16px;
+    font-weight:800; cursor:pointer; font-size:.86rem; white-space:nowrap; font-family:inherit}
+  .btn-sm:hover{background:var(--brand-deep)} .btn-sm:disabled{background:#cbd5e1; cursor:wait}
+  .results{display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:10px; margin-top:12px}
+  .rcard{border:1.5px solid var(--line); border-radius:10px; padding:6px; cursor:pointer; background:#fff; text-align:center; transition:.15s}
+  .rcard:hover{border-color:var(--brand)} .rcard.sel{border-color:var(--brand); box-shadow:0 0 0 3px rgba(59,130,246,.16)}
+  .rcard img{width:100%; border-radius:6px; display:block}
+  .rcard .rn{font-size:.62rem; color:var(--muted); margin-top:4px; line-height:1.25}
+  .valpanel{margin-top:14px; border:1px solid var(--line); border-radius:12px; overflow:hidden; display:none}
+  .valpanel.show{display:block}
+  .valpanel .vp-top{display:flex; gap:12px; padding:14px; align-items:center; background:#fff; border-bottom:1px solid var(--line)}
+  .valpanel .vp-top img{width:64px; border-radius:7px; flex:none}
+  .valpanel .vp-name{font-weight:800; font-size:.95rem} .valpanel .vp-set{font-size:.76rem; color:var(--muted)}
+  .valgrid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--line)}
+  @media(max-width:560px){ .valgrid{grid-template-columns:1fr} }
+  .vcell{background:#fff; padding:13px 14px}
+  .vcell .vl{font-size:.66rem; text-transform:uppercase; letter-spacing:.4px; font-weight:800; color:var(--muted)}
+  .vcell .vv{font-size:1.15rem; font-weight:800; margin-top:2px}
+  .vcell.up .vv{color:var(--ok)} .vcell .vsub{font-size:.7rem; color:var(--muted)}
+  .caveat{background:#fffbeb; border-top:1px solid #fde68a; color:#92400e; font-size:.74rem; padding:10px 14px}
+  .lookup-note{font-size:.7rem; color:var(--muted); margin-top:8px}
+
+  .defect{border:1.5px solid var(--line); border-radius:14px; overflow:hidden; margin-bottom:16px; transition:.15s}
+  .defect.sel{border-color:var(--brand); box-shadow:0 0 0 3px rgba(59,130,246,.14)}
+  .defect-top{display:flex; align-items:flex-start; gap:12px; padding:15px; cursor:pointer; background:#fff}
+  .checkbox{width:24px; height:24px; border:2px solid #cbd5e1; border-radius:7px; flex:none; margin-top:1px; display:grid; place-items:center; transition:.15s; background:#fff}
+  .checkbox svg{width:15px; height:15px; opacity:0; transform:scale(.5); transition:.15s}
+  .defect.sel .checkbox{background:var(--brand); border-color:var(--brand)}
+  .defect.sel .checkbox svg{opacity:1; transform:scale(1)}
+  .defect-top .body{flex:1}
+  .defect-title{display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-weight:700; font-size:1rem}
+  .defect-desc{font-size:.83rem; color:var(--muted); margin-top:4px}
+  .tag{font-size:.68rem; font-weight:800; padding:3px 9px; border-radius:999px; letter-spacing:.2px}
+  .tag.t1{background:var(--t1bg); color:var(--t1)} .tag.t2{background:var(--t2bg); color:var(--t2)} .tag.t3{background:var(--t3bg); color:var(--t3)}
+  .compare{display:grid; grid-template-columns:1fr 1fr; gap:0; border-top:1px solid var(--line)}
+  @media(max-width:480px){ .compare{grid-template-columns:1fr} }
+  .cmp{padding:14px}
+  .cmp+.cmp{border-left:1px solid var(--line)}
+  @media(max-width:480px){ .cmp+.cmp{border-left:none; border-top:1px solid var(--line)} }
+  .cmp .cap{display:flex; align-items:center; gap:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px}
+  .cmp.bad .cap{color:var(--bad)} .cmp.good .cap{color:var(--ok)}
+  .cmp p{margin:8px 0 0; font-size:.78rem; color:var(--ink-soft)}
+  .media{width:100%; height:120px; border-radius:10px; overflow:hidden; background:#f8fafc; display:grid; place-items:center}
+  .media img{width:100%; height:100%; object-fit:contain; display:block}
+  .media svg{width:100%; height:100%}
+
+  /* Upload */
+  .drop{border:2px dashed #cbd5e1; border-radius:14px; padding:22px; text-align:center; cursor:pointer; transition:.15s; background:#fafbfc}
+  .drop:hover,.drop.drag{border-color:var(--brand); background:#eff6ff}
+  .drop svg{width:32px; height:32px; color:var(--brand); margin-bottom:6px}
+  .drop .dt{font-weight:700; font-size:.9rem} .drop .dd{font-size:.76rem; color:var(--muted); margin-top:3px}
+  .thumbs{display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:10px; margin-top:12px}
+  .thumb{position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1; border:1px solid var(--line)}
+  .thumb img{width:100%; height:100%; object-fit:cover}
+  .thumb .x{position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; background:rgba(15,23,42,.7); color:#fff; border:none; cursor:pointer; font-size:.8rem; line-height:1; display:grid; place-items:center}
+
+  .ptable{width:100%; border-collapse:collapse; font-size:.85rem; margin-top:4px}
+  .ptable th{background:var(--brand-ink); color:#fff; text-align:left; padding:11px 12px; font-size:.74rem; letter-spacing:.3px}
+  .ptable td{padding:12px; border-bottom:1px solid var(--line); vertical-align:top}
+  .ptable tr:last-child td{border-bottom:none}
+  .ptable .tier,.ptable .price{font-weight:800; white-space:nowrap}
+  @media(max-width:560px){
+    .ptable thead{display:none}
+    .ptable,.ptable tbody,.ptable tr,.ptable td{display:block; width:100%}
+    .ptable tr{border:1.5px solid var(--line); border-radius:12px; margin-bottom:12px; padding:6px 4px}
+    .ptable td{border:none; padding:7px 12px}
+    .ptable td::before{content:attr(data-l); display:block; font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:2px}
+  }
+  .policy{background:#eff6ff; border-left:4px solid var(--brand); border-radius:10px; padding:14px 16px; margin-top:16px}
+  .policy h4{margin:0 0 8px; font-size:.86rem; color:var(--brand-ink)}
+  .policy ul{margin:0; padding-left:18px}
+  .policy li{font-size:.8rem; margin-bottom:5px; color:var(--ink-soft)}
+
+  .agree{display:flex; gap:11px; align-items:flex-start; background:#f8fafc; border:1.5px solid var(--line); border-radius:12px; padding:14px; margin:6px 0 16px; cursor:pointer}
+  .agree input{width:20px; height:20px; margin-top:2px; flex:none; accent-color:var(--brand)}
+  .agree span{font-size:.82rem; color:var(--ink-soft)}
+
+  .estbar{position:fixed; left:0; right:0; bottom:0; z-index:50; background:#fff; border-top:1px solid var(--line); box-shadow:0 -6px 24px rgba(15,23,42,.10)}
+  .estbar-in{max-width:880px; margin:0 auto; padding:11px 16px; display:flex; align-items:center; gap:14px}
+  .est-info{flex:1; min-width:0}
+  .est-label{font-size:.68rem; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:800}
+  .est-value{font-size:1.02rem; font-weight:800; margin-top:1px}
+  .est-value .tier{font-size:.78rem; font-weight:700; color:var(--brand-ink)}
+  .btn{background:var(--brand); color:#fff; border:none; border-radius:12px; padding:13px 20px; font-size:.92rem; font-weight:800; cursor:pointer; transition:.15s; white-space:nowrap; font-family:inherit}
+  .btn:hover{background:var(--brand-deep)} .btn:disabled{background:#cbd5e1; cursor:not-allowed}
+  .btn.ghost{background:#fff; color:var(--brand-deep); border:1.5px solid var(--brand)}
+
+  .modal{position:fixed; inset:0; z-index:100; background:rgba(15,23,42,.55); display:none; place-items:center; padding:20px}
+  .modal.show{display:grid}
+  .modal-card{background:#fff; border-radius:18px; max-width:520px; width:100%; padding:26px; box-shadow:var(--shadow-lg); max-height:88vh; overflow:auto}
+  .modal-card h3{margin:0 0 4px; font-size:1.25rem}
+  .check-big{width:56px; height:56px; border-radius:50%; background:var(--t1bg); display:grid; place-items:center; margin:0 auto 12px}
+  .summary{background:#f8fafc; border:1px solid var(--line); border-radius:12px; padding:14px; margin:14px 0; font-size:.84rem}
+  .summary div{padding:4px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:12px}
+  .summary div:last-child{border-bottom:none}
+  .summary .k{color:var(--muted); font-weight:600; flex:none} .summary .v{text-align:right; font-weight:600}
+  .dev-note{background:#fffbeb; border:1px dashed #f59e0b; border-radius:10px; padding:11px 13px; font-size:.76rem; color:#92400e; margin-top:14px}
+  code{background:#f1f5f9; padding:1px 5px; border-radius:5px; font-size:.85em}
+  footer{text-align:center; color:var(--muted); font-size:.74rem; padding:20px 0 8px}
+  .spin{display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px; margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap hero-row">
+    <div>
+      <h1>Pokémon Card Restoration</h1>
+      <p>Diagnostic Intake &amp; Assessment — guided, mobile-friendly, with live value lookup</p>
+    </div>
+    <div class="badge-id">TFL21683<b class="handle">@tedflarsenjr</b></div>
+  </div>
+</header>
+
+<div class="progress">
+  <div class="progress-inner">
+    <div class="pstep active" data-p="1"><span class="dot">1</span> Your Info</div>
+    <div class="pstep" data-p="2"><span class="dot">2</span> Card Defects</div>
+    <div class="pstep" data-p="3"><span class="dot">3</span> Photos</div>
+    <div class="pstep" data-p="4"><span class="dot">4</span> Pricing</div>
+    <div class="pstep" data-p="5"><span class="dot">5</span> Authorize</div>
+  </div>
+</div>
+
+<form id="intake" class="wrap" novalidate>
+
+  <!-- STEP 1 -->
+  <section class="block" id="s1">
+    <div class="sec-head"><span class="num">1</span><h2>Client &amp; Card Information</h2></div>
+    <div class="rule"></div>
+    <div class="grid">
+      <div class="field">
+        <label>Client Name <span class="req">*</span></label>
+        <input type="text" name="clientName" autocomplete="name" placeholder="Your full name" required>
+      </div>
+      <div class="field">
+        <label>Contact Email or Phone <span class="req">*</span></label>
+        <input type="text" name="contact" autocomplete="email" placeholder="you@email.com or (555) 555-5555" required>
+      </div>
+      <div class="field">
+        <label>Card Name &amp; Set Number <span class="req">*</span></label>
+        <input type="text" name="cardName" id="cardName" placeholder="e.g. Charizard — Base Set 4/102" required>
+      </div>
+      <div class="field">
+        <label>Submission Date</label>
+        <input type="date" name="subDate">
+      </div>
+    </div>
+
+    <!-- VALUE LOOKUP -->
+    <div class="lookup">
+      <div class="lookup-head">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        Look up your card's market value
+      </div>
+      <div class="hint" style="margin-top:0">Powered by the free, open Pokémon TCG API. Search, pick your exact card, then choose conditions to see the value uplift restoration could unlock.</div>
+      <div class="lookup-row">
+        <div class="field"><label>Card name to search</label>
+          <input type="text" id="searchName" placeholder="e.g. Charizard"></div>
+        <div class="field" style="max-width:150px"><label>Set (optional)</label>
+          <input type="text" id="searchSet" placeholder="e.g. Base"></div>
+        <div class="field" style="max-width:120px"><label>Card # (optional)</label>
+          <input type="text" id="searchNumber" placeholder="e.g. 4"></div>
+        <div class="field" style="display:flex; align-items:flex-end">
+          <button type="button" class="btn-sm" id="searchBtn" style="width:100%">Search</button></div>
+      </div>
+      <div class="results" id="results"></div>
+
+      <div class="lookup-row" id="condRow" style="display:none">
+        <div class="field"><label>Current condition</label>
+          <select id="condCurrent">
+            <option value="DMG">Damaged (DMG)</option>
+            <option value="HP" selected>Heavily Played (HP)</option>
+            <option value="MP">Moderately Played (MP)</option>
+            <option value="LP">Lightly Played (LP)</option>
+            <option value="NM">Near Mint (NM)</option>
+          </select></div>
+        <div class="field"><label>Realistic condition after restoration</label>
+          <select id="condTarget">
+            <option value="HP">Heavily Played (HP)</option>
+            <option value="MP">Moderately Played (MP)</option>
+            <option value="LP" selected>Lightly Played (LP)</option>
+            <option value="NM">Near Mint (NM)</option>
+          </select></div>
+      </div>
+
+      <div class="valpanel" id="valpanel">
+        <div class="vp-top">
+          <img id="vpImg" src="" alt="">
+          <div><div class="vp-name" id="vpName"></div><div class="vp-set" id="vpSet"></div></div>
+        </div>
+        <div class="valgrid">
+          <div class="vcell"><div class="vl">NM Market (baseline)</div><div class="vv" id="vNM"></div><div class="vsub">TCGplayer market price</div></div>
+          <div class="vcell"><div class="vl">Est. value now</div><div class="vv" id="vNow"></div><div class="vsub" id="vNowSub"></div></div>
+          <div class="vcell up"><div class="vl">Est. value if restored</div><div class="vv" id="vAfter"></div><div class="vsub" id="vUplift"></div></div>
+        </div>
+        <div class="caveat" id="caveatBox"></div>
+      </div>
+      <div class="lookup-note">Condition values are estimates derived from the NM market price using standard condition multipliers — actual sale prices vary by card, buyer, and marketplace.</div>
+    </div>
+
+    <div class="field" style="margin-top:16px">
+      <label>Declared Raw Card Value <span class="req">*</span></label>
+      <div class="hint" style="margin-top:0;margin-bottom:8px">Sets the risk tier &amp; any high-value premium. The lookup above can help you pick.</div>
+      <div class="pills" id="valuePills">
+        <label class="pill"><input type="radio" name="value" value="Standard (under $200)" required>
+          <div class="t">Standard</div><div class="d">Under $200</div></label>
+        <label class="pill"><input type="radio" name="value" value="High-Value ($200-$1,000)">
+          <div class="t">High-Value</div><div class="d">$200 – $1,000</div></label>
+        <label class="pill"><input type="radio" name="value" value="Ultra High-Value ($1,000+)">
+          <div class="t">Ultra High-Value</div><div class="d">$1,000+</div></label>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="block" id="s2">
+    <div class="sec-head"><span class="num">2</span><h2>Visual Defect Checklist</h2></div>
+    <div class="sec-sub">Tap each defect your card has. The left shows the problem, the right shows the restored goal.</div>
+    <div class="rule"></div>
+    <div id="defects"></div>
+    <div class="field" style="margin-top:6px">
+      <label>Anything else we should know? (optional)</label>
+      <textarea name="notes" rows="3" placeholder="Sentimental value, prior restoration attempts, specific concerns, etc."></textarea>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="block" id="s3">
+    <div class="sec-head"><span class="num">3</span><h2>Upload Card Photos</h2></div>
+    <div class="sec-sub">Add clear photos of your card — front, back, and close-ups of any damage under angled light. This helps us quote accurately.</div>
+    <div class="rule"></div>
+    <div class="drop" id="drop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+      <div class="dt">Tap to add photos, or drag &amp; drop</div>
+      <div class="dd">JPG or PNG · up to 8 images · front, back &amp; damage close-ups</div>
+      <input type="file" id="fileInput" name="photos" accept="image/*" multiple hidden>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="block" id="s4">
+    <div class="sec-head"><span class="num">4</span><h2>Service Pricing &amp; Policy</h2></div>
+    <div class="sec-sub">Your estimate below updates automatically based on the defects you selected.</div>
+    <div class="rule"></div>
+    <table class="ptable">
+      <thead><tr><th>Service Tier</th><th>Included Techniques</th><th>Turnaround</th><th>Price / Card</th></tr></thead>
+      <tbody>
+        <tr><td data-l="Tier" class="tier">Tier 1 · Basic</td><td data-l="Techniques">Surface polish, fingerprint/wax oil removal, ambient chamber humidification &amp; flattening.</td><td data-l="Turnaround">2–4 Days</td><td data-l="Price" class="price">$5 – $15</td></tr>
+        <tr><td data-l="Tier" class="tier">Tier 2 · Moderate</td><td data-l="Techniques">Targeted hydration, precision micro-stylus dent work, thermal heat press &amp; multi-clamp cycle.</td><td data-l="Turnaround">5–7 Days</td><td data-l="Price" class="price">$15 – $35</td></tr>
+        <tr><td data-l="Tier" class="tier">Tier 3 · Heavy</td><td data-l="Techniques">Crease mitigation, severe compression expansion, multi-stage thermal clamping &amp; micro-tooling.</td><td data-l="Turnaround">7–14 Days</td><td data-l="Price" class="price">$40 – $80+</td></tr>
+      </tbody>
+    </table>
+    <div class="policy">
+      <h4>High-Value Risk Premium &amp; Terms</h4>
+      <ul>
+        <li><b>$200 – $1,000 raw:</b> Base labor rate + 1.5%–2% of declared raw value.</li>
+        <li><b>$1,000+ raw:</b> $50–$75/hr labor + 2%–3% risk insurance fee.</li>
+        <li><b>Evaluation fee ($5–$10):</b> Applied only if a card is non-correctable — credited toward the work if you proceed.</li>
+        <li><b>Bulk savings (10+ cards):</b> 30%–40% discount on batch curve flattening or cleaning.</li>
+        <li><b>Grading note:</b> Non-invasive cleaning &amp; curve correction routinely pass PSA/CGC/BGS. Heavy crease tooling carries a minor "Altered" risk if over-processed.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- STEP 5 -->
+  <section class="block" id="s5">
+    <div class="sec-head"><span class="num">5</span><h2>Authorization</h2></div>
+    <div class="rule"></div>
+    <label class="agree">
+      <input type="checkbox" name="agree" id="agree" required>
+      <span>I understand restoration outcomes are estimates, that creased cards can only be <b>mitigated (not fully repaired)</b>, and that restored cards may be graded as "Altered" by PSA/CGC/BGS. I authorize TFL21683 to assess and, upon my confirmation of the quote, restore my card(s).</span>
+    </label>
+    <div class="grid">
+      <div class="field"><label>Type your full name to sign <span class="req">*</span></label>
+        <input type="text" name="signature" placeholder="Your signature" required></div>
+      <div class="field"><label>Date</label><input type="date" name="signDate"></div>
+    </div>
+  </section>
+
+  <footer>TFL21683 · @tedflarsenjr · Property of TFL21683 — Do Not Duplicate</footer>
+</form>
+
+<div class="estbar">
+  <div class="estbar-in">
+    <div class="est-info">
+      <div class="est-label">Estimated Service</div>
+      <div class="est-value" id="estValue">Select defects to see estimate <span class="tier"></span></div>
+    </div>
+    <button class="btn" type="button" id="submitBtn">Submit Request</button>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <div class="check-big"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <h3 style="text-align:center" id="modalTitle">Request Submitted</h3>
+    <p style="text-align:center;color:var(--muted);margin:4px 0 0" id="modalMsg">Here's your intake summary:</p>
+    <div class="summary" id="summary"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn ghost" type="button" id="copyBtn" style="flex:1">Copy Summary</button>
+      <button class="btn" type="button" id="closeBtn" style="flex:1">Done</button>
+    </div>
+    <div class="dev-note" id="devNote"></div>
+  </div>
+</div>
+
+<script>
+/* =======================================================================
+   TFL21683 CONFIG — edit these three things to go live.
+   ======================================================================= */
+const CONFIG = {
+  // 1) Paste your Formspree endpoint here (e.g. "https://formspree.io/f/abcdwxyz").
+  //    Leave "" to use the copy/email fallback. See setup steps in the dev note.
+  FORMSPREE_ENDPOINT: "",
+
+  // 2) Fallback email used if no Formspree endpoint is set (opens the user's mail app).
+  FALLBACK_EMAIL: "tedflarsenjr@example.com",
+
+  // 3) Disclaimer shown under the value estimate. Soften or clear as you like.
+  ALTERED_CAVEAT: "Heads up: restoration is cosmetic, not grading. A cleaned or pressed card may be labeled “Altered” by PSA/CGC/BGS, which can affect resale. The “value if restored” figure is an estimate of the raw, ungraded value at the improved condition."
+};
+
+/* Condition multipliers vs. Near Mint (editable). Based on common market norms. */
+const COND = { NM:1.00, LP:0.80, MP:0.55, HP:0.33, DMG:0.15 };
+const COND_LABEL = { NM:"Near Mint", LP:"Lightly Played", MP:"Moderately Played", HP:"Heavily Played", DMG:"Damaged" };
+
+/* ---------- Defect definitions (from the TFL21683 Correction Guide) ---------- */
+const DEFECTS = [
+  { id:"bowing", title:"Card Curling / Foil Bowing", tiers:[{l:"Tier 1 · Basic",c:"t1"}], weight:1,
+    desc:"The card arches like a curve or potato chip, but has no sharp folds or paper cracks. Common on foil cards from humidity shifts.",
+    badFig:"bad", badCap:"Normal Curve (Bowing)", badTxt:"Smooth arched “C” or “S” shape. Card lies unevenly on flat surfaces.",
+    goodTxt:"100% flat profile. Moisture balanced inside foil & paper stock." },
+  { id:"surface", title:"Surface Oils, Dirt, or Scratches", tiers:[{l:"Tier 1 · Dirt",c:"t1"},{l:"Tier 2 · Scratches",c:"t2"}], weight:2,
+    desc:"Fingerprints, wax, cloudy haze, or light topcoat hairline scuffs visible under angled light on holographic surfaces.",
+    badFig:"scuff", badCap:"Light Scuffs & Haze", badTxt:"Fine superficial scratches or dull film obscuring the glossy holo finish.",
+    goodTxt:"90%–100% removal of dirt/oils. Smooth surface reflection restored." },
+  { id:"indent", title:"Corner Dings, Binder Impressions & Roller Lines", tiers:[{l:"Tier 2 · Moderate",c:"t2"}], weight:2,
+    desc:"Localized pressure marks, binder ring dings on edges/corners, or factory roller lines pressed in without tearing paper fibers.",
+    badFig:"indent", badCap:"Surface Indent", badTxt:"Compressed cardstock or pin-point pressure mark creating a sightline shadow.",
+    goodTxt:"70%–90% fiber recovery. Pressed area lifted back flush with the border." },
+  { id:"crease", title:"Surface Wrinkles & Deep Creases", tiers:[{l:"Tier 3 · Heavy",c:"t3"}], weight:3,
+    desc:"Physical folds or bends in the cardstock. Surface-level (color intact) or deep (white/blue inner core visible through broken color).",
+    badFig:"crease", badCap:"Wrinkle vs White Crack", badTxt:"Wrinkle = color intact. Deep crease = color broken, white core split visible.",
+    goodTxt:"Mitigation only (30%–85%). Card flattened; crease line becomes subtle." }
+];
+
+/* ---------- SVG illustrations (fallback when no real photo exists) ---------- */
+function svg(kind, restored){
+  const cardFill = restored ? "#dbeafe" : "#e0e7ff", stroke = "#334155";
+  const flatCard = `
+    <rect x="55" y="30" width="90" height="120" rx="9" fill="${cardFill}" stroke="${stroke}" stroke-width="2.5"/>
+    <rect x="64" y="42" width="72" height="46" rx="5" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+    <circle cx="100" cy="65" r="14" fill="#93c5fd"/>
+    <rect x="66" y="98" width="68" height="6" rx="3" fill="#cbd5e1"/>
+    <rect x="66" y="110" width="52" height="5" rx="2.5" fill="#e2e8f0"/>`;
+  if(restored){ return `<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">${flatCard}
+    <line x1="45" y1="158" x2="155" y2="158" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="4 4"/>
+    <g transform="translate(150,20)"><circle r="13" fill="#16a34a"/><path d="M-6 0l4 4 8-8" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`; }
+  if(kind==="bad"){ return `<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">
+    <path d="M40 60 Q100 10 160 60 L160 120 Q100 70 40 120 Z" fill="#e0e7ff" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M55 74 Q100 40 145 74" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+    <ellipse cx="100" cy="70" rx="13" ry="10" fill="#93c5fd"/>
+    <line x1="30" y1="150" x2="170" y2="150" stroke="#cbd5e1" stroke-width="2"/>
+    <path d="M45 150 Q100 130 155 150" stroke="#dc2626" stroke-width="2" fill="none" stroke-dasharray="4 3"/>
+    <g transform="translate(150,26)"><circle r="13" fill="#dc2626"/><path d="M-5 -5l10 10M5 -5l-10 10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></g></svg>`; }
+  if(kind==="scuff"){ return `<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">${flatCard}
+    <g stroke="#64748b" stroke-width="1.2" opacity=".8"><line x1="70" y1="50" x2="128" y2="62"/><line x1="72" y1="70" x2="130" y2="58"/><line x1="68" y1="120" x2="120" y2="132"/><line x1="80" y1="135" x2="132" y2="118"/></g>
+    <ellipse cx="112" cy="55" rx="16" ry="9" fill="#fff" opacity=".45"/>
+    <g transform="translate(150,26)"><circle r="13" fill="#dc2626"/><path d="M-5 -5l10 10M5 -5l-10 10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></g></svg>`; }
+  if(kind==="indent"){ return `<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">${flatCard}
+    <ellipse cx="132" cy="128" rx="12" ry="9" fill="#94a3b8" opacity=".55"/><circle cx="132" cy="126" r="4" fill="#475569"/>
+    <g transform="translate(150,26)"><circle r="13" fill="#dc2626"/><path d="M-5 -5l10 10M5 -5l-10 10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></g></svg>`; }
+  if(kind==="crease"){ return `<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">${flatCard}
+    <path d="M55 70 L145 108" stroke="#f8fafc" stroke-width="4"/><path d="M55 70 L145 108" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 3"/>
+    <path d="M70 128 L130 128" stroke="#fff" stroke-width="3"/><path d="M70 128 L130 128" stroke="#94a3b8" stroke-width="1.5"/>
+    <g transform="translate(150,26)"><circle r="13" fill="#d97706"/><path d="M0 -6 L0 2 M0 6 L0 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></g></svg>`; }
+  return "";
+}
+/* Real-photo slot: shows assets/<id>-<side>.jpg if present, else the SVG fallback. */
+function mediaSlot(id, side, svgMarkup){
+  const src = `assets/${id}-${side}.jpg`;
+  return `<div class="media">
+    <img src="${src}" alt="" onerror="this.remove()" onload="this.nextElementSibling&&this.nextElementSibling.remove()">
+    ${svgMarkup}
+  </div>`;
+}
+
+/* ---------- Build defect cards ---------- */
+const wrap = document.getElementById("defects");
+DEFECTS.forEach((d,i)=>{
+  const tags = d.tiers.map(t=>`<span class="tag ${t.c}">${t.l}</span>`).join(" ");
+  const el = document.createElement("div");
+  el.className = "defect"; el.dataset.id = d.id; el.dataset.weight = d.weight;
+  el.innerHTML = `
+    <div class="defect-top" role="button" tabindex="0" aria-pressed="false">
+      <div class="checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <div class="body">
+        <div class="defect-title">${i+1}. ${d.title} ${tags}</div>
+        <div class="defect-desc">${d.desc}</div>
+      </div>
+    </div>
+    <div class="compare">
+      <div class="cmp bad"><div class="cap">✕ ${d.badCap}</div>${mediaSlot(d.id,"before",svg(d.badFig,false))}<p>${d.badTxt}</p></div>
+      <div class="cmp good"><div class="cap">✓ Restored Goal</div>${mediaSlot(d.id,"after",svg("good",true))}<p>${d.goodTxt}</p></div>
+    </div>
+    <input type="hidden" name="defect_${d.id}" value="">`;
+  wrap.appendChild(el);
+  const top = el.querySelector(".defect-top"), hidden = el.querySelector("input[type=hidden]");
+  const toggle = ()=>{ const on = el.classList.toggle("sel"); top.setAttribute("aria-pressed",on);
+    hidden.value = on ? d.title : ""; updateEstimate(); };
+  top.addEventListener("click", toggle);
+  top.addEventListener("keydown", e=>{ if(e.key===" "||e.key==="Enter"){ e.preventDefault(); toggle(); }});
+});
+
+/* ---------- Value pills ---------- */
+document.querySelectorAll("#valuePills .pill").forEach(p=>{
+  p.addEventListener("click", ()=>{
+    document.querySelectorAll("#valuePills .pill").forEach(x=>x.classList.remove("sel"));
+    p.classList.add("sel"); p.querySelector("input").checked = true; updateEstimate();
+  });
+});
+function autoPickValueTier(usd){
+  let idx = usd>=1000?2 : usd>=200?1 : 0;
+  const pills=[...document.querySelectorAll("#valuePills .pill")];
+  pills.forEach(x=>x.classList.remove("sel"));
+  pills[idx].classList.add("sel"); pills[idx].querySelector("input").checked=true;
+}
+
+/* ---------- Estimate engine ---------- */
+const TIER = { 1:{name:"Tier 1 · Basic Conditioning",range:[5,15]},
+  2:{name:"Tier 2 · Moderate Correction",range:[15,35]}, 3:{name:"Tier 3 · Heavy Restoration",range:[40,80]} };
+const selectedDefects = ()=>[...document.querySelectorAll(".defect.sel")];
+const currentTier = ()=>{ const w=selectedDefects().map(el=>+el.dataset.weight); return w.length?Math.max(...w):0; };
+function updateEstimate(){
+  const t=currentTier(), box=document.getElementById("estValue");
+  if(!t){ box.innerHTML='Select defects to see estimate <span class="tier"></span>'; return; }
+  const {name,range}=TIER[t]; const hi = range[1]===80?"80+":range[1];
+  box.innerHTML = `$${range[0]} – $${hi} <span class="tier">/ ${name}</span>`;
+}
+
+/* ============================ VALUE LOOKUP ============================ */
+const API = "https://api.pokemontcg.io/v2/cards";
+let picked = null;   // {name,set,number,img,nm}
+const $ = id => document.getElementById(id);
+
+$("searchBtn").addEventListener("click", runSearch);
+$("searchName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); runSearch(); }});
+
+async function runSearch(){
+  const name = $("searchName").value.trim() || $("cardName").value.trim().split("—")[0].trim();
+  if(!name){ $("searchName").focus(); return; }
+  const setq = $("searchSet").value.trim();
+  const numq = $("searchNumber").value.trim();
+  let q = `name:"${name.replace(/"/g,'')}"`;
+  if(setq) q += ` set.name:"${setq.replace(/"/g,'')}"`;
+  if(numq) q += ` number:"${numq.replace(/"/g,'')}"`;
+  const url = `${API}?q=${encodeURIComponent(q)}&pageSize=12&orderBy=-set.releaseDate&select=id,name,number,set,images,tcgplayer,cardmarket`;
+  const btn=$("searchBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>Searching';
+  const res=$("results"); res.innerHTML="";
+  try{
+    const r = await fetch(url, { headers:{Accept:"application/json"} });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const data = await r.json();
+    if(!data.data || !data.data.length){ res.innerHTML=`<div class="hint">No matches. Try just the card name, or check spelling.</div>`; return; }
+    data.data.forEach(c=>{
+      const nm = bestMarket(c);
+      const card=document.createElement("div"); card.className="rcard";
+      card.innerHTML=`<img src="${c.images.small}" alt="${c.name}" loading="lazy">
+        <div class="rn">${c.set.name} · #${c.number}${nm!=null?`<br><b>$${nm.toFixed(2)}</b>`:`<br><span style="color:#94a3b8">no price</span>`}</div>`;
+      card.addEventListener("click", ()=>{
+        document.querySelectorAll(".rcard").forEach(x=>x.classList.remove("sel"));
+        card.classList.add("sel");
+        picked={ name:c.name, set:c.set.name, number:c.number, img:c.images.small, nm };
+        $("condRow").style.display="flex";
+        if(nm!=null) renderValue(); else { $("valpanel").classList.remove("show");
+          res.insertAdjacentHTML("afterend",""); }
+        if(nm==null){ $("valpanel").classList.add("show");
+          $("vpImg").src=picked.img; $("vpName").textContent=picked.name;
+          $("vpSet").textContent=`${picked.set} · #${picked.number}`;
+          $("vNM").textContent="—"; $("vNow").textContent="—"; $("vAfter").textContent="—";
+          $("vNowSub").textContent=""; $("vUplift").textContent="No market price on file for this printing";
+          $("caveatBox").textContent=CONFIG.ALTERED_CAVEAT; }
+      });
+      res.appendChild(card);
+    });
+  }catch(err){
+    res.innerHTML=`<div class="hint">Couldn't reach the price service right now (${err.message}). You can still submit — just enter the value manually below.</div>`;
+  }finally{ btn.disabled=false; btn.textContent="Search"; }
+}
+function bestMarket(c){
+  const p = c.tcgplayer && c.tcgplayer.prices;
+  if(p){ for(const v of ["holofoil","reverseHolofoil","normal","1stEditionHolofoil","unlimitedHolofoil"]){
+    if(p[v] && (p[v].market||p[v].mid)) return p[v].market ?? p[v].mid; } }
+  const cm = c.cardmarket && c.cardmarket.prices;
+  if(cm && (cm.trendPrice||cm.averageSellPrice)) return cm.trendPrice ?? cm.averageSellPrice;
+  return null;
+}
+$("condCurrent").addEventListener("change", renderValue);
+$("condTarget").addEventListener("change", renderValue);
+function renderValue(){
+  if(!picked || picked.nm==null) return;
+  const nm=picked.nm, cur=$("condCurrent").value, tgt=$("condTarget").value;
+  const now = nm*COND[cur], after = nm*COND[tgt];
+  const upl = after-now, uplPct = now>0 ? Math.round((upl/now)*100) : 0;
+  $("valpanel").classList.add("show");
+  $("vpImg").src=picked.img; $("vpName").textContent=picked.name;
+  $("vpSet").textContent=`${picked.set} · #${picked.number}`;
+  $("vNM").textContent="$"+nm.toFixed(2);
+  $("vNow").textContent="$"+now.toFixed(2); $("vNowSub").textContent=COND_LABEL[cur];
+  $("vAfter").textContent="$"+after.toFixed(2);
+  $("vUplift").textContent = upl>=0 ? `+ $${upl.toFixed(2)} (${uplPct}% ↑) at ${COND_LABEL[tgt]}` : `${COND_LABEL[tgt]}`;
+  $("caveatBox").textContent = CONFIG.ALTERED_CAVEAT;
+  autoPickValueTier(nm); updateEstimate();
+}
+
+/* ============================ PHOTO UPLOAD ============================ */
+const drop=$("drop"), fileInput=$("fileInput"), thumbs=$("thumbs");
+let files=[];
+drop.addEventListener("click", ()=>fileInput.click());
+fileInput.addEventListener("change", e=>addFiles(e.target.files));
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop", e=>addFiles(e.dataTransfer.files));
+function addFiles(list){
+  [...list].filter(f=>f.type.startsWith("image/")).forEach(f=>{ if(files.length<8) files.push(f); });
+  syncInput(); renderThumbs();
+}
+function renderThumbs(){
+  thumbs.innerHTML="";
+  files.forEach((f,i)=>{
+    const url=URL.createObjectURL(f);
+    const t=document.createElement("div"); t.className="thumb";
+    t.innerHTML=`<img src="${url}" alt=""><button type="button" class="x" data-i="${i}">✕</button>`;
+    t.querySelector(".x").addEventListener("click", ()=>{ files.splice(i,1); syncInput(); renderThumbs(); });
+    thumbs.appendChild(t);
+  });
+}
+function syncInput(){ const dt=new DataTransfer(); files.forEach(f=>dt.items.add(f)); fileInput.files=dt.files; }
+
+/* ---------- Progress highlight on scroll ---------- */
+const steps=[...document.querySelectorAll(".pstep")];
+const secs=["s1","s2","s3","s4","s5"].map(id=>$(id));
+const io=new IntersectionObserver(ents=>{ ents.forEach(e=>{ if(e.isIntersecting){
+  const idx=secs.indexOf(e.target);
+  steps.forEach((s,i)=>{ s.classList.toggle("active",i===idx); s.classList.toggle("done",i<idx); });
+}});},{rootMargin:"-45% 0px -45% 0px"});
+secs.forEach(s=>io.observe(s));
+
+/* ============================ SUBMIT ============================ */
+const form=$("intake");
+$("submitBtn").addEventListener("click", onSubmit);
+
+function collect(){
+  const fd=new FormData(form);
+  const defects=selectedDefects().map(el=>el.querySelector(".defect-title").textContent.trim());
+  const t=currentTier();
+  const val = picked ? {
+    card:`${picked.name} — ${picked.set} #${picked.number}`,
+    nm:picked.nm, current:$("condCurrent").value, target:$("condTarget").value,
+    valueNow: picked.nm!=null ? +(picked.nm*COND[$("condCurrent").value]).toFixed(2) : null,
+    valueAfter: picked.nm!=null ? +(picked.nm*COND[$("condTarget").value]).toFixed(2) : null
+  } : null;
+  return {
+    client:fd.get("clientName"), contact:fd.get("contact"), card:fd.get("cardName"),
+    date:fd.get("subDate"), value:fd.get("value")||"—",
+    defects, notes:fd.get("notes"),
+    tier: t?TIER[t].name:"—", estimate: t?`$${TIER[t].range[0]} – $${TIER[t].range[1]===80?"80+":TIER[t].range[1]}`:"—",
+    lookup: val, photoCount: files.length,
+    signature:fd.get("signature"), signDate:fd.get("signDate"), agreed:fd.get("agree")==="on"
+  };
+}
+function buildSummary(d){
+  const rows=[["Client",d.client],["Contact",d.contact],["Card",d.card],["Declared Value",d.value],
+    ["Defects", d.defects.map(x=>x.replace(/^\d+\.\s*/,"")).join("; ")||"—"],
+    ["Recommended Tier",d.tier],["Service Estimate",d.estimate+" / card"],["Photos",d.photoCount+" attached"]];
+  if(d.lookup && d.lookup.valueNow!=null){
+    rows.push(["Card Value Now", `$${d.lookup.valueNow} (${d.lookup.current})`]);
+    rows.push(["Value If Restored", `$${d.lookup.valueAfter} (${d.lookup.target})`]);
+  }
+  rows.push(["Signed", d.signature||"—"]);
+  $("summary").innerHTML = rows.map(([k,v])=>`<div><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+}
+
+async function onSubmit(){
+  if(!form.reportValidity()) return;
+  if(selectedDefects().length===0){ alert("Please select at least one defect so we can assess your card."); $("s2").scrollIntoView(); return; }
+  const d=collect(); buildSummary(d);
+  const btn=$("submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>Sending';
+  try{
+    if(CONFIG.FORMSPREE_ENDPOINT){
+      const fd=new FormData(form);            // includes photos + all native fields
+      fd.append("_derived", JSON.stringify(d)); // defects, tier, estimate, value lookup
+      const r=await fetch(CONFIG.FORMSPREE_ENDPOINT, { method:"POST", body:fd, headers:{Accept:"application/json"} });
+      if(!r.ok) throw new Error("Formspree HTTP "+r.status);
+      showModal(true);
+    } else {
+      showModal(false); // fallback: copy/email
+    }
+  }catch(err){
+    showModal(false, err.message);
+  }finally{ btn.disabled=false; btn.textContent="Submit Request"; }
+}
+
+function showModal(sent, errMsg){
+  const dev=$("devNote");
+  if(sent){
+    $("modalTitle").textContent="Request Sent ✓";
+    $("modalMsg").textContent="Ted has received your intake. Here's your copy:";
+    dev.style.display="none";
+  } else {
+    $("modalTitle").textContent="Request Ready to Send";
+    $("modalMsg").textContent= errMsg ? "Couldn't reach the server — copy or email your summary below." : "No live endpoint yet — copy or email your summary below.";
+    dev.style.display="block";
+    dev.innerHTML = `<b>Go live in ~2 minutes (Ted):</b> create a free form at
+      <code>formspree.io</code>, then paste its endpoint into
+      <code>CONFIG.FORMSPREE_ENDPOINT</code> at the top of this file's &lt;script&gt;.
+      Submissions (with photos) will then email automatically. Full data is logged to the browser console.`;
+  }
+  console.log("Intake submission:", collect());
+  $("modal").classList.add("show");
+}
+
+/* ---------- Modal actions ---------- */
+$("closeBtn").addEventListener("click", ()=>$("modal").classList.remove("show"));
+$("copyBtn").addEventListener("click", ()=>{
+  const d=collect();
+  let text=`POKÉMON CARD RESTORATION — INTAKE
+Client: ${d.client}
+Contact: ${d.contact}
+Card: ${d.card}
+Submission Date: ${d.date||"—"}
+Declared Value: ${d.value}
+Defects: ${d.defects.map(x=>x.replace(/^\d+\.\s*/,"")).join("; ")||"—"}
+Notes: ${d.notes||"—"}
+Recommended Tier: ${d.tier}
+Service Estimate: ${d.estimate} / card
+Photos: ${d.photoCount} attached (send separately if emailing)`;
+  if(d.lookup && d.lookup.valueNow!=null){
+    text+=`\nCard Value Now: $${d.lookup.valueNow} (${d.lookup.current})`;
+    text+=`\nValue If Restored: $${d.lookup.valueAfter} (${d.lookup.target})`;
+  }
+  text+=`\nSigned: ${d.signature||"—"} (${d.signDate||"—"})`;
+  // If no Formspree, also offer a mailto with the body prefilled.
+  navigator.clipboard.writeText(text).then(()=>{
+    const b=$("copyBtn"); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy Summary",1600);
+  });
+  if(!CONFIG.FORMSPREE_ENDPOINT){
+    const subj=encodeURIComponent(`Card Restoration Intake — ${d.client}`);
+    window.location.href=`mailto:${CONFIG.FALLBACK_EMAIL}?subject=${subj}&body=${encodeURIComponent(text)}`;
+  }
+});
+
+/* ---------- Prefill today ---------- */
+const today=new Date().toISOString().slice(0,10);
+form.subDate.value=today; form.signDate.value=today;
+</script>
+</body>
+</html>
