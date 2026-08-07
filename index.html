@@ -392,14 +392,23 @@
    TFL21683 CONFIG — edit these three things to go live.
    ======================================================================= */
 const CONFIG = {
-  // 1) Paste your Formspree endpoint here (e.g. "https://formspree.io/f/abcdwxyz").
-  //    Leave "" to use the copy/email fallback. See setup steps in the dev note.
-  FORMSPREE_ENDPOINT: "",
+  // 1) EMAIL BACKEND (Web3Forms — free, NO account/password needed).
+  //    Get a key in ~30 sec: go to https://web3forms.com, enter Support@wackymclovin.com,
+  //    then check that inbox for the "access key" and paste it between the quotes below.
+  //    Leave "" to use the copy/email fallback until then.
+  WEB3FORMS_ACCESS_KEY: "",
 
-  // 2) Fallback email used if no Formspree endpoint is set (opens the user's mail app).
-  FALLBACK_EMAIL: "tedflarsenjr@example.com",
+  // 2) Where submissions are emailed (this is the inbox tied to the access key above).
+  SUBMIT_EMAIL: "Support@wackymclovin.com",
 
-  // 3) Disclaimer shown under the value estimate. Soften or clear as you like.
+  // 3) Fallback address for the copy/email option (used only if no access key is set yet).
+  FALLBACK_EMAIL: "Support@wackymclovin.com",
+
+  // 4) Optional: free Pokémon TCG API key for higher rate limits & fewer hiccups.
+  //    Get one at https://dev.pokemontcg.io. Leave "" to run keyless (still works).
+  POKEMONTCG_API_KEY: "",
+
+  // 5) Disclaimer shown under the value estimate. Soften or clear as you like.
   ALTERED_CAVEAT: "Heads up: restoration is cosmetic, not grading. A cleaned or pressed card may be labeled “Altered” by PSA/CGC/BGS, which can affect resale. The “value if restored” figure is an estimate of the raw, ungraded value at the improved condition."
 };
 
@@ -526,6 +535,28 @@ const API = "https://api.pokemontcg.io/v2/cards";
 let picked = null;   // {name,set,number,img,nm}
 const $ = id => document.getElementById(id);
 
+/* Resilient fetch: retries automatically through the API's intermittent 5xx errors,
+   and sends the optional API key when one is configured. */
+async function fetchCards(url, tries=3){
+  const headers = {Accept:"application/json"};
+  if(CONFIG.POKEMONTCG_API_KEY) headers["X-Api-Key"] = CONFIG.POKEMONTCG_API_KEY;
+  let lastErr;
+  for(let i=0;i<tries;i++){
+    try{
+      const r = await fetch(url, {headers});
+      if(r.ok) return await r.json();
+      if(r.status < 500) throw new Error("HTTP "+r.status);   // client error: don't retry
+      lastErr = new Error("HTTP "+r.status);                  // server error: retry
+    }catch(e){
+      lastErr = e;
+      const m = String(e.message||"");
+      if(m.startsWith("HTTP ") && !/HTTP 5/.test(m)) throw e; // stop on 4xx
+    }
+    if(i < tries-1) await new Promise(res=>setTimeout(res, 500*(i+1)));  // 0.5s, 1s backoff
+  }
+  throw lastErr;
+}
+
 $("searchBtn").addEventListener("click", runSearch);
 $("searchName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); runSearch(); }});
 
@@ -541,9 +572,7 @@ async function runSearch(){
   const btn=$("searchBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>Searching';
   const res=$("results"); res.innerHTML="";
   try{
-    const r = await fetch(url, { headers:{Accept:"application/json"} });
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    const data = await r.json();
+    const data = await fetchCards(url);
     if(!data.data || !data.data.length){ res.innerHTML=`<div class="hint">No matches. Try just the card name, or check spelling.</div>`; return; }
     data.data.forEach(c=>{
       const nm = bestMarket(c);
@@ -670,11 +699,16 @@ async function onSubmit(){
   const d=collect(); buildSummary(d);
   const btn=$("submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>Sending';
   try{
-    if(CONFIG.FORMSPREE_ENDPOINT){
-      const fd=new FormData(form);            // includes photos + all native fields
-      fd.append("_derived", JSON.stringify(d)); // defects, tier, estimate, value lookup
-      const r=await fetch(CONFIG.FORMSPREE_ENDPOINT, { method:"POST", body:fd, headers:{Accept:"application/json"} });
-      if(!r.ok) throw new Error("Formspree HTTP "+r.status);
+    if(CONFIG.WEB3FORMS_ACCESS_KEY){
+      const fd=new FormData(form);                 // includes photos + all native fields
+      fd.append("access_key", CONFIG.WEB3FORMS_ACCESS_KEY);
+      fd.append("subject", `Card Restoration Intake — ${d.client||"New submission"}`);
+      fd.append("from_name", d.client||"Website Intake");
+      fd.append("message", summaryText(d));        // readable body of the email
+      fd.append("_derived", JSON.stringify(d));     // structured copy (defects, tier, value lookup)
+      const r=await fetch("https://api.web3forms.com/submit", { method:"POST", body:fd, headers:{Accept:"application/json"} });
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok || j.success===false) throw new Error(j.message || ("HTTP "+r.status));
       showModal(true);
     } else {
       showModal(false); // fallback: copy/email
@@ -694,19 +728,17 @@ function showModal(sent, errMsg){
     $("modalTitle").textContent="Request Ready to Send";
     $("modalMsg").textContent= errMsg ? "Couldn't reach the server — copy or email your summary below." : "No live endpoint yet — copy or email your summary below.";
     dev.style.display="block";
-    dev.innerHTML = `<b>Go live in ~2 minutes (Ted):</b> create a free form at
-      <code>formspree.io</code>, then paste its endpoint into
-      <code>CONFIG.FORMSPREE_ENDPOINT</code> at the top of this file's &lt;script&gt;.
-      Submissions (with photos) will then email automatically. Full data is logged to the browser console.`;
+    dev.innerHTML = `<b>Turn on auto-email in ~30 seconds:</b> go to <code>web3forms.com</code>,
+      enter <code>Support@wackymclovin.com</code>, check that inbox for the access key, and paste it into
+      <code>CONFIG.WEB3FORMS_ACCESS_KEY</code> at the top of this file's &lt;script&gt;.
+      Submissions will then email to Support@wackymclovin.com automatically. Full data is also logged to the browser console.`;
   }
   console.log("Intake submission:", collect());
   $("modal").classList.add("show");
 }
 
-/* ---------- Modal actions ---------- */
-$("closeBtn").addEventListener("click", ()=>$("modal").classList.remove("show"));
-$("copyBtn").addEventListener("click", ()=>{
-  const d=collect();
+/* ---------- Shared plain-text summary (used by email body + copy button) ---------- */
+function summaryText(d){
   let text=`POKÉMON CARD RESTORATION — INTAKE
 Client: ${d.client}
 Contact: ${d.contact}
@@ -717,19 +749,27 @@ Defects: ${d.defects.map(x=>x.replace(/^\d+\.\s*/,"")).join("; ")||"—"}
 Notes: ${d.notes||"—"}
 Recommended Tier: ${d.tier}
 Service Estimate: ${d.estimate} / card
-Photos: ${d.photoCount} attached (send separately if emailing)`;
+Photos: ${d.photoCount} attached`;
   if(d.lookup && d.lookup.valueNow!=null){
     text+=`\nCard Value Now: $${d.lookup.valueNow} (${d.lookup.current})`;
     text+=`\nValue If Restored: $${d.lookup.valueAfter} (${d.lookup.target})`;
   }
   text+=`\nSigned: ${d.signature||"—"} (${d.signDate||"—"})`;
-  // If no Formspree, also offer a mailto with the body prefilled.
+  return text;
+}
+
+/* ---------- Modal actions ---------- */
+$("closeBtn").addEventListener("click", ()=>$("modal").classList.remove("show"));
+$("copyBtn").addEventListener("click", ()=>{
+  const d=collect();
+  const text=summaryText(d);
   navigator.clipboard.writeText(text).then(()=>{
     const b=$("copyBtn"); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy Summary",1600);
   });
-  if(!CONFIG.FORMSPREE_ENDPOINT){
+  // If no live email backend yet, also open a prefilled email to Support@wackymclovin.com.
+  if(!CONFIG.WEB3FORMS_ACCESS_KEY){
     const subj=encodeURIComponent(`Card Restoration Intake — ${d.client}`);
-    window.location.href=`mailto:${CONFIG.FALLBACK_EMAIL}?subject=${subj}&body=${encodeURIComponent(text)}`;
+    window.location.href=`mailto:${CONFIG.SUBMIT_EMAIL||CONFIG.FALLBACK_EMAIL}?subject=${subj}&body=${encodeURIComponent(text)}`;
   }
 });
 
