@@ -393,7 +393,7 @@
    ======================================================================= */
 const CONFIG = {
   // 1) EMAIL BACKEND (Web3Forms — free, NO account/password needed).
-  //    Get a key in ~30 sec: go to https://web3forms.com, enter Support@wackymclovin.com,
+  //    Get a key in ~30 sec: go to https://web3forms.com, enter TFL21683@gmail.com,
   //    then check that inbox for the "access key" and paste it between the quotes below.
   //    Leave "" to use the copy/email fallback until then.
   //    NOTE: this key must be the one registered to TFL21683@gmail.com (the destination below).
@@ -729,10 +729,9 @@ function showModal(sent, errMsg){
     $("modalTitle").textContent="Request Ready to Send";
     $("modalMsg").textContent= errMsg ? "Couldn't reach the server — copy or email your summary below." : "No live endpoint yet — copy or email your summary below.";
     dev.style.display="block";
-    dev.innerHTML = `<b>Turn on auto-email in ~30 seconds:</b> go to <code>web3forms.com</code>,
-      enter <code>Support@wackymclovin.com</code>, check that inbox for the access key, and paste it into
-      <code>CONFIG.WEB3FORMS_ACCESS_KEY</code> at the top of this file's &lt;script&gt;.
-      Submissions will then email to Support@wackymclovin.com automatically. Full data is also logged to the browser console.`;
+    dev.innerHTML = `<b>Almost there —</b> your details are saved but the automatic send didn't complete on this device
+      (usually an out-of-date page). Please tap <b>Copy Summary</b> and email it to
+      <b>TFL21683@gmail.com</b>, or refresh this page and submit again.`;
   }
   console.log("Intake submission:", collect());
   $("modal").classList.add("show");
@@ -767,7 +766,7 @@ $("copyBtn").addEventListener("click", ()=>{
   navigator.clipboard.writeText(text).then(()=>{
     const b=$("copyBtn"); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy Summary",1600);
   });
-  // If no live email backend yet, also open a prefilled email to Support@wackymclovin.com.
+  // If no live email backend yet, also open a prefilled email to the SUBMIT_EMAIL address.
   if(!CONFIG.WEB3FORMS_ACCESS_KEY){
     const subj=encodeURIComponent(`Card Restoration Intake — ${d.client}`);
     window.location.href=`mailto:${CONFIG.SUBMIT_EMAIL||CONFIG.FALLBACK_EMAIL}?subject=${subj}&body=${encodeURIComponent(text)}`;
